@@ -4,6 +4,8 @@
     // File Layout
     "rootDir": "./src",
     "outDir": "./dist",
+    "include": ["src/**/*.ts"],
+"exclude": ["node_modules", "dist", "tests", "**/*.test.ts"],
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
