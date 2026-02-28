@@ -34,15 +34,20 @@ const EnvSchema = z
 
     GOOGLE_CLIENT_ID: z.string().optional(),
 
-    EMAIL_PROVIDER: z.enum(["console", "smtp"]).default("console"),
+    EMAIL_PROVIDER: z.enum(["console", "smtp", "resend"]).default("console"),
+
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().optional(),
     SMTP_SECURE: boolFromString,
     SMTP_USER: z.string().optional(),
     SMTP_PASS: z.string().optional(),
     SMTP_FROM: z.string().optional(),
+
+    RESEND_API_KEY: z.string().optional(),
+    EMAIL_FROM: z.string().optional(),
   })
   .superRefine((cfg, ctx) => {
+
     if (cfg.NODE_ENV === "production" && cfg.COOKIE_SECURE !== true) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -61,6 +66,7 @@ const EnvSchema = z
 
     if (cfg.EMAIL_PROVIDER === "smtp") {
       const required = ["SMTP_HOST", "SMTP_PORT", "SMTP_FROM"] as const;
+
       for (const k of required) {
         if (!(cfg as any)[k]) {
           ctx.addIssue({
@@ -70,11 +76,30 @@ const EnvSchema = z
           });
         }
       }
+
       if ((cfg.SMTP_USER && !cfg.SMTP_PASS) || (!cfg.SMTP_USER && cfg.SMTP_PASS)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["SMTP_USER"],
           message: "Provide both SMTP_USER and SMTP_PASS (or neither)",
+        });
+      }
+    }
+
+    if (cfg.EMAIL_PROVIDER === "resend") {
+      if (!cfg.RESEND_API_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["RESEND_API_KEY"],
+          message: "RESEND_API_KEY is required when EMAIL_PROVIDER=resend",
+        });
+      }
+
+      if (!cfg.EMAIL_FROM) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["EMAIL_FROM"],
+          message: "EMAIL_FROM is required when EMAIL_PROVIDER=resend",
         });
       }
     }
@@ -91,7 +116,8 @@ const EnvSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["GOOGLE_CLIENT_ID"],
-        message: "GOOGLE_CLIENT_ID is required in production (frontend has Google sign-in)",
+        message:
+          "GOOGLE_CLIENT_ID is required in production (frontend has Google sign-in)",
       });
     }
   });
@@ -121,10 +147,14 @@ export const env = EnvSchema.parse({
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
 
   EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
+
   SMTP_HOST: process.env.SMTP_HOST,
   SMTP_PORT: process.env.SMTP_PORT,
   SMTP_SECURE: process.env.SMTP_SECURE,
   SMTP_USER: process.env.SMTP_USER,
   SMTP_PASS: process.env.SMTP_PASS,
   SMTP_FROM: process.env.SMTP_FROM,
+
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  EMAIL_FROM: process.env.EMAIL_FROM,
 });
