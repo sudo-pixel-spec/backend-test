@@ -12,7 +12,7 @@ const UserSchema = new mongoose.Schema(
     profileComplete: { type: Boolean, default: false },
     profile: {
       fullName: { type: String },
-      avatarUrl: { type: String }, // ✅ add
+      avatarUrl: { type: String },
       standard: { type: String },
       timezone: { type: String }
     },
