@@ -14,6 +14,7 @@ import { attemptRouter } from "./routes/attempt.routes";
 import { leaderboardRouter } from "./routes/leaderboard.routes";
 import { chatRouter } from "./routes/chat.routes";
 import { adminRouter } from "./routes/admin.routes";
+import { dashboardRouter } from "./routes/dashboard.routes";
 
 import { startJobsIfEnabled } from "./jobs/startJobs";
 import { notFound } from "./middleware/notFound";
@@ -59,6 +60,7 @@ export function createApp() {
   app.use("/v1", leaderboardRouter);
   app.use("/v1", chatRouter);
   app.use("/v1/admin", adminRouter);
+  app.use("/v1", dashboardRouter);
 
   app.use(notFound);
   app.use(errorHandler);
