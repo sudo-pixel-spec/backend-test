@@ -11,8 +11,7 @@ import { Lesson } from "../models/Lesson";
 import { Quiz } from "../models/Quiz";
 import { Attempt } from "../models/Attempt";
 import { writeAdminAudit } from "../services/adminAudit";
-
-import { ok, fail } from "../utils/apiResponse";
+import { AdminAuditLog } from "../models/AdminAuditLog";
 
 function parsePaging(req: Request) {
   const page = Math.max(1, Number(req.query.page ?? 1));
@@ -925,4 +924,39 @@ export async function restoreQuiz(req: Request, res: Response) {
   });
 
   return res.json(ok(updated));
+}
+
+const AuditQuerySchema = z.object({
+  action: z.string().optional(),
+  entity: z.string().optional(),
+});
+
+export async function listAdminAuditLogs(req: Request, res: Response) {
+  const { page, limit, skip } = parsePaging(req);
+  const parsed = AuditQuerySchema.safeParse(req.query);
+
+  if (!parsed.success) {
+    return res.status(400).json(fail("VALIDATION", "Invalid query params"));
+  }
+
+  const filter: any = {};
+
+  if (parsed.data.action && parsed.data.action !== "ALL") {
+    filter.action = parsed.data.action;
+  }
+
+  if (parsed.data.entity && parsed.data.entity !== "ALL") {
+    filter.entity = parsed.data.entity;
+  }
+
+  const [items, total] = await Promise.all([
+    AdminAuditLog.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    AdminAuditLog.countDocuments(filter),
+  ]);
+
+  return res.json(ok({ page, limit, total, items }));
 }

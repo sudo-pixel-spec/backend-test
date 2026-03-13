@@ -9,7 +9,7 @@ import {
   listChapters, createChapter, updateChapter, deleteChapter,
   listLessons, createLesson, updateLesson, deleteLesson,
   getLatestQuizForLesson, createQuizVersion, setQuizPublished, publishQuizExclusive,
-  restoreStandard, restoreSubject, restoreUnit, restoreChapter, restoreLesson, restoreQuiz, jobsStatus 
+  restoreStandard, restoreSubject, restoreUnit, restoreChapter, restoreLesson, restoreQuiz, jobsStatus, listAdminAuditLogs
 } from "../controllers/admin.controller";
 
 export const adminRouter = Router();
@@ -54,3 +54,4 @@ adminRouter.patch("/lessons/:id/restore", restoreLesson);
 adminRouter.patch("/quizzes/:id/restore", restoreQuiz);
 
 adminRouter.get("/jobs/status", jobsStatus);
+adminRouter.get("/audit", listAdminAuditLogs);
