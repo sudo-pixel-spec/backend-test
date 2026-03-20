@@ -5,28 +5,30 @@ function generateOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-export async function createOtp(email: string, ip?: string) {
+export async function createOtp(phone: string, ip?: string) {
+  console.log(`[TRACE] createOtp called for ${phone}`);
   const otp = generateOtp();
+  console.log(`[TRACE] Generated OTP: ${otp}`);
   const otpHash = await bcrypt.hash(otp, 10);
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-  await Otp.deleteMany({ email });
+  await Otp.deleteMany({ phone });
 
-  await Otp.create({ email, otpHash, expiresAt, attemptsLeft: 5, createdIp: ip });
+  await Otp.create({ phone, otpHash, expiresAt, attemptsLeft: 5, createdIp: ip ?? null });
   return otp;
 }
 
-export async function verifyOtp(email: string, otp: string) {
-  const record = await Otp.findOne({ email });
+export async function verifyOtp(phone: string, otp: string) {
+  const record = await Otp.findOne({ phone });
   if (!record) return { ok: false as const, reason: "OTP_NOT_FOUND" };
 
   if (record.expiresAt.getTime() < Date.now()) {
-    await Otp.deleteMany({ email });
+    await Otp.deleteMany({ phone });
     return { ok: false as const, reason: "OTP_EXPIRED" };
   }
 
   if (record.attemptsLeft <= 0) {
-    await Otp.deleteMany({ email });
+    await Otp.deleteMany({ phone });
     return { ok: false as const, reason: "OTP_LOCKED" };
   }
 
@@ -37,6 +39,6 @@ export async function verifyOtp(email: string, otp: string) {
     return { ok: false as const, reason: "OTP_INVALID", attemptsLeft: record.attemptsLeft };
   }
 
-  await Otp.deleteMany({ email });
+  await Otp.deleteMany({ phone });
   return { ok: true as const };
 }

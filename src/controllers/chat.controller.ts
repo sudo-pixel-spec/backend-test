@@ -84,11 +84,12 @@ export async function chat(req: AuthRequest, res: Response) {
   }
 
   if (!session) {
-    session = await ChatSession.create({
+    const sessionPayload: any = {
       userId: req.user.id,
-      lessonId,
       title: message.slice(0, 50),
-    });
+    };
+    if (lessonId) sessionPayload.lessonId = String(lessonId);
+    session = await ChatSession.create(sessionPayload);
   }
 
   let lessonContext = "";
@@ -150,21 +151,25 @@ ${weaknessContext}
     .reverse()
     .map((m) => ({ role: m.role, content: m.content }));
 
-  const messages = [
+  const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
     {
       role: "system",
       content: systemPrompt + (lessonContext ? `\n\n${lessonContext}` : ""),
     },
-    ...reversedHistory,
+    ...(reversedHistory as { role: "user" | "assistant"; content: string }[]),
     { role: "user", content: message },
   ];
 
   const ai = await aiProvider.chat(messages);
 
-  await ChatMessage.create([
-    { sessionId: session._id, role: "user", content: message, tokenCount: undefined },
-    { sessionId: session._id, role: "assistant", content: ai.content, tokenCount: ai.tokenCount },
-  ]);
+  const msgsToCreate: any[] = [
+    { sessionId: session._id, role: "user", content: message },
+    { sessionId: session._id, role: "assistant", content: ai.content }
+  ];
+  if (ai.tokenCount != null) {
+    msgsToCreate[1].tokenCount = ai.tokenCount;
+  }
+  await ChatMessage.create(msgsToCreate);
 
   return res.json(ok({ reply: ai.content, sessionId: session._id }));
 }

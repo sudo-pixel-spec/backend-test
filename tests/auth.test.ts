@@ -17,7 +17,7 @@ describe("Auth OTP flow", () => {
   });
 
   afterEach(async () => {
-    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.db?.dropDatabase();
   });
 
   afterAll(async () => {
@@ -29,11 +29,12 @@ describe("Auth OTP flow", () => {
     const app = createApp();
     const res = await request(app)
       .post("/v1/auth/request-otp")
-      .send({ email: "test@example.com" });
+      .send({ phone: "1234567890" });
 
     expect(res.status).toBe(200);
 
-    const rec = await Otp.findOne({ email: "test@example.com" });
+    const normalizedPhone = "+911234567890";
+    const rec = await Otp.findOne({ phone: normalizedPhone });
     expect(rec).toBeTruthy();
   });
 
@@ -42,11 +43,11 @@ describe("Auth OTP flow", () => {
 
     await request(app)
       .post("/v1/auth/request-otp")
-      .send({ email: "test2@example.com" });
+      .send({ phone: "0987654321" });
 
     const res = await request(app)
       .post("/v1/auth/verify-otp")
-      .send({ email: "test2@example.com", otp: "000000" });
+      .send({ phone: "0987654321", otp: "000000" });
 
     expect(res.status).toBe(401);
     expect(res.body.ok).toBe(false);
@@ -54,14 +55,17 @@ describe("Auth OTP flow", () => {
 
   it("verify-otp with correct code should succeed and set refresh cookie", async () => {
     const app = createApp();
-    const email = "ok@example.com";
+    const phone = "1231231234";
 
     await request(app)
       .post("/v1/auth/request-otp")
-      .send({ email });
+      .send({ phone });
+
+    const normalizedPhone = phone.replace(/\D/g, "");
+    const finalPhone = normalizedPhone.length === 10 ? `+91${normalizedPhone}` : normalizedPhone;
 
     const knownOtp = "123456";
-    const rec = await Otp.findOne({ email });
+    const rec = await Otp.findOne({ phone: finalPhone });
     if (!rec) throw new Error("OTP record missing");
 
     rec.otpHash = await bcrypt.hash(knownOtp, 10);
@@ -69,13 +73,13 @@ describe("Auth OTP flow", () => {
 
     const res = await request(app)
       .post("/v1/auth/verify-otp")
-      .send({ email, otp: knownOtp });
+      .send({ phone, otp: knownOtp });
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.data.accessToken).toBeTruthy();
 
-    const cookies = res.headers["set-cookie"]?.join(";") ?? "";
+    const cookies = String(res.headers["set-cookie"] || "");
     expect(cookies).toContain("refresh_token=");
   });
 });

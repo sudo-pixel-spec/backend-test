@@ -2,17 +2,23 @@ import request from "supertest";
 import bcrypt from "bcryptjs";
 import { Otp } from "../../src/models/Otp";
 
-export async function loginAndGetAccessToken(app: any, email: string) {
-  await request(app).post("/v1/auth/request-otp").send({ email });
+export async function loginAndGetAccessToken(app: any, phone: string) {
+  const reqRes = await request(app).post("/v1/auth/request-otp").send({ phone });
+  if (reqRes.status !== 200) {
+    throw new Error(`OTP request failed: ${reqRes.status} ${JSON.stringify(reqRes.body)}`);
+  }
 
   const knownOtp = "123456";
-  const rec = await Otp.findOne({ email });
+  const normalizedPhone = phone.replace(/\D/g, "");
+  const finalPhone = normalizedPhone.length === 10 ? `+91${normalizedPhone}` : normalizedPhone;
+
+  const rec = await Otp.findOne({ phone: finalPhone });
   if (!rec) throw new Error("OTP record missing");
 
   rec.otpHash = await bcrypt.hash(knownOtp, 10);
   await rec.save();
 
-  const res = await request(app).post("/v1/auth/verify-otp").send({ email, otp: knownOtp });
+  const res = await request(app).post("/v1/auth/verify-otp").send({ phone, otp: knownOtp });
   return res.body.data.accessToken as string;
 }
 

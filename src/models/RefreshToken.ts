@@ -7,7 +7,8 @@ const RefreshTokenSchema = new mongoose.Schema(
     revokedAt: { type: Date, default: null },
     expiresAt: { type: Date, required: true },
     userAgent: { type: String },
-    createdIp: { type: String }
+    createdIp: { type: String },
+    deviceId: { type: String }
   },
   { timestamps: true }
 );

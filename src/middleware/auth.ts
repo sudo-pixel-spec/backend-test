@@ -7,6 +7,8 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     role: string;
+    adminType?: "super" | "regular";
+    allocatedStandards?: string[];
   };
 }
 
@@ -26,7 +28,12 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
       return res.status(401).json(fail("USER_NOT_FOUND", "Invalid user"));
     }
 
-    req.user = { id: String(user._id), role: user.role };
+    req.user = { 
+      id: String(user._id), 
+      role: user.role,
+      adminType: (user as any).adminType,
+      allocatedStandards: (user as any).allocatedStandards?.map((id: any) => String(id))
+    };
     next();
   } catch {
     return res.status(401).json(fail("INVALID_TOKEN", "Invalid or expired token"));
@@ -40,6 +47,14 @@ export function requireRole(role: "admin" | "learner") {
       return res.status(403).json(fail("FORBIDDEN", "Insufficient permissions"));
     next();
   };
+}
+
+export function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.user) return res.status(401).json(fail("NO_AUTH", "Not authenticated"));
+  if (req.user.role !== "admin" || req.user.adminType !== "super") {
+    return res.status(403).json(fail("FORBIDDEN", "Super admin access required"));
+  }
+  next();
 }
 
 export async function profileGate(req: AuthRequest, res: Response, next: NextFunction) {

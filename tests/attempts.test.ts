@@ -21,7 +21,7 @@ describe("Attempts submit", () => {
   });
 
   afterEach(async () => {
-    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.db?.dropDatabase();
   });
 
   afterAll(async () => {
@@ -46,7 +46,7 @@ describe("Attempts submit", () => {
     const app = createApp();
     const { lesson } = await seedLessonWithQuiz();
 
-    const token = await loginAndGetAccessToken(app, "p@p.com");
+    const token = await loginAndGetAccessToken(app, "1234567899");
 
     const res = await request(app)
       .post("/v1/attempts/submit")
@@ -65,7 +65,7 @@ describe("Attempts submit", () => {
     const app = createApp();
     const { lesson } = await seedLessonWithQuiz("medium");
 
-    const token = await loginAndGetAccessToken(app, "a@a.com");
+    const token = await loginAndGetAccessToken(app, "1111111111");
     await completeProfile(app, token);
 
     const res = await request(app)
@@ -88,15 +88,17 @@ describe("Attempts submit", () => {
     expect(res.body.data.total).toBe(3);
     expect(res.body.data.xpAwarded).toBeGreaterThan(0);
 
-    const user = await User.findOne({ email: "a@a.com" });
+    const normalizedPhone = "1111111111";
+    const finalPhone = `+91${normalizedPhone}`;
+    const user = await User.findOne({ phone: finalPhone });
     expect(user).toBeTruthy();
     expect(user!.totalXP).toBe(res.body.data.xpAwarded);
-    expect(user!.wallet.coins).toBe(res.body.data.coinsAwarded);
+    expect(user!.wallet?.coins).toBe(res.body.data.coinsAwarded);
 
     const attempts = await Attempt.find({}).lean();
     expect(attempts.length).toBe(1);
-    expect(attempts[0].score).toBe(2);
-    expect(attempts[0].answers.length).toBe(3);
+    expect(attempts[0]?.score).toBe(2);
+    expect(attempts[0]?.answers?.length).toBe(3);
 
     const txns = await WalletTransaction.find({ userId: user!._id }).lean();
     expect(txns.length).toBe(2);
@@ -106,7 +108,7 @@ describe("Attempts submit", () => {
     const app = createApp();
     const { lesson } = await seedLessonWithQuiz("hard");
 
-    const token = await loginAndGetAccessToken(app, "d@d.com");
+    const token = await loginAndGetAccessToken(app, "2222222222");
     await completeProfile(app, token);
 
     const res = await request(app)
@@ -126,15 +128,17 @@ describe("Attempts submit", () => {
     expect(res.body.data.score).toBe(3);
     expect(res.body.data.diamondsAwarded).toBeGreaterThan(0);
 
-    const user = await User.findOne({ email: "d@d.com" });
-    expect(user!.wallet.diamonds).toBe(res.body.data.diamondsAwarded);
+    const normalizedPhone = "2222222222";
+    const finalPhone = `+91${normalizedPhone}`;
+    const user = await User.findOne({ phone: finalPhone });
+    expect(user!.wallet?.diamonds).toBe(res.body.data.diamondsAwarded);
   });
 
   it("idempotency should prevent double awarding", async () => {
     const app = createApp();
     const { lesson } = await seedLessonWithQuiz("medium");
 
-    const token = await loginAndGetAccessToken(app, "i@i.com");
+    const token = await loginAndGetAccessToken(app, "3333333333");
     await completeProfile(app, token);
 
     const payload = {
@@ -153,7 +157,9 @@ describe("Attempts submit", () => {
     expect(res1.status).toBe(200);
     expect(res2.status).toBe(200);
 
-    const user = await User.findOne({ email: "i@i.com" });
+    const normalizedPhone = "3333333333";
+    const finalPhone = `+91${normalizedPhone}`;
+    const user = await User.findOne({ phone: finalPhone });
     expect(user).toBeTruthy();
 
     const attempts = await Attempt.find({}).lean();

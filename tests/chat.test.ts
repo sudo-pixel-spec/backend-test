@@ -16,7 +16,7 @@ describe("AI Chat", () => {
   });
 
   afterEach(async () => {
-    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.db?.dropDatabase();
   });
 
   afterAll(async () => {
@@ -28,7 +28,7 @@ describe("AI Chat", () => {
     const app = createApp();
     const { lesson } = await seedLessonWithQuiz();
 
-    const token = await loginAndGetAccessToken(app, "chat@x.com");
+    const token = await loginAndGetAccessToken(app, "1000000014");
     await completeProfile(app, token);
 
     const res = await request(app)
@@ -49,7 +49,7 @@ describe("AI Chat", () => {
 
   it("should refuse cheating prompts", async () => {
     const app = createApp();
-    const token = await loginAndGetAccessToken(app, "cheat@x.com");
+    const token = await loginAndGetAccessToken(app, "1000000015");
     await completeProfile(app, token);
 
     const res = await request(app)
@@ -67,7 +67,7 @@ describe("AI Chat", () => {
   process.env.AI_DAILY_LIMIT = "2";
 
   const app = createApp();
-  const token = await loginAndGetAccessToken(app, "quota@x.com");
+  const token = await loginAndGetAccessToken(app, "1000000016");
   await completeProfile(app, token);
 
   const r1 = await request(app).post("/v1/ai/chat").set("Authorization", `Bearer ${token}`).send({ message: "hi" });

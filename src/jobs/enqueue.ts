@@ -1,6 +1,6 @@
 import { env } from "../config/env";
-
-type JobName = "sendOtpEmail" | "recomputeWeeklyLeaderboard" | "aiLog";
+import { agendaManager } from "./agendaManager";
+import { JobName } from "./definitions";
 
 export type EnqueueOptions = { runAt?: Date };
 
@@ -8,18 +8,13 @@ function isTest() {
   return env.NODE_ENV === "test" || !!process.env.JEST_WORKER_ID;
 }
 
-function driver() {
-  return env.JOBS_DRIVER;
-}
-
-async function inlineEnqueue(name: JobName, payload: any) {
+async function inlineEnqueue(name: string, payload: any) {
   const { runJobInline } = require("./inlineRunner");
   await runJobInline(name, payload);
 }
 
-async function agendaEnqueue(name: JobName, payload: any, opts?: EnqueueOptions) {
-  const { getAgenda } = require("./agendaDriver");
-  const agenda = await getAgenda();
+async function agendaEnqueue(name: string, payload: any, opts?: EnqueueOptions) {
+  const agenda = await agendaManager.getAgenda();
 
   if (opts?.runAt) return agenda.schedule(opts.runAt, name, payload);
   return agenda.now(name, payload);
@@ -28,13 +23,13 @@ async function agendaEnqueue(name: JobName, payload: any, opts?: EnqueueOptions)
 export async function enqueueNow(name: JobName, payload: any) {
   if (isTest()) return inlineEnqueue(name, payload);
 
-  if (env.JOBS_ENABLED && driver() === "agenda") return agendaEnqueue(name, payload);
+  if (env.JOBS_ENABLED && env.JOBS_DRIVER === "agenda") return agendaEnqueue(name, payload);
   return inlineEnqueue(name, payload);
 }
 
 export async function enqueueAt(name: JobName, payload: any, runAt: Date) {
   if (isTest()) return inlineEnqueue(name, payload);
 
-  if (env.JOBS_ENABLED && driver() === "agenda") return agendaEnqueue(name, payload, { runAt });
+  if (env.JOBS_ENABLED && env.JOBS_DRIVER === "agenda") return agendaEnqueue(name, payload, { runAt });
   return inlineEnqueue(name, payload);
 }

@@ -33,6 +33,7 @@ const EnvSchema = z
     JOBS_LOCK_LIFETIME_MS: z.coerce.number().default(600000),
 
     GOOGLE_CLIENT_ID: z.string().optional(),
+    OPENAI_API_KEY: z.string().optional(),
 
     EMAIL_PROVIDER: z.enum(["console", "smtp", "resend"]).default("console"),
 
@@ -45,6 +46,13 @@ const EnvSchema = z
 
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().optional(),
+
+    SMS_PROVIDER: z.enum(["console", "msg91", "twilio"]).default("console"),
+    MSG91_AUTH_KEY: z.string().optional(),
+    MSG91_TEMPLATE_ID: z.string().optional(),
+    TWILIO_ACCOUNT_SID: z.string().optional(),
+    TWILIO_AUTH_TOKEN: z.string().optional(),
+    TWILIO_FROM_NUMBER: z.string().optional(),
   })
   .superRefine((cfg, ctx) => {
 
@@ -157,4 +165,13 @@ export const env = EnvSchema.parse({
 
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   EMAIL_FROM: process.env.EMAIL_FROM,
+
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+
+  SMS_PROVIDER: process.env.SMS_PROVIDER as any,
+  MSG91_AUTH_KEY: process.env.MSG91_AUTH_KEY,
+  MSG91_TEMPLATE_ID: process.env.MSG91_TEMPLATE_ID,
+  TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
+  TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
+  TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER,
 });

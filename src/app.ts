@@ -15,8 +15,8 @@ import { leaderboardRouter } from "./routes/leaderboard.routes";
 import { chatRouter } from "./routes/chat.routes";
 import { adminRouter } from "./routes/admin.routes";
 import { dashboardRouter } from "./routes/dashboard.routes";
+import { analyticsRouter } from "./routes/analytics.routes";
 
-import { startJobsIfEnabled } from "./jobs/startJobs";
 import { notFound } from "./middleware/notFound";
 import { errorHandler } from "./middleware/error";
 import { env } from "./config/env";
@@ -26,11 +26,6 @@ export function createApp() {
 
   app.set("trust proxy", 1);
 
-  if (env.NODE_ENV !== "test") {
-    startJobsIfEnabled().catch((e) => {
-      console.error("Jobs start failed", e);
-    });
-  }
 
   app.use(requestId);
 
@@ -61,9 +56,10 @@ export function createApp() {
   app.use("/v1", chatRouter);
   app.use("/v1/admin", adminRouter);
   app.use("/v1", dashboardRouter);
+  app.use("/v1", analyticsRouter);
 
   app.use(notFound);
-  app.use(errorHandler);
+  app.use(errorHandler as any);
 
   return app;
 }

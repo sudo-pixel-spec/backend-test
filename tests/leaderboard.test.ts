@@ -17,7 +17,7 @@ describe("Leaderboards", () => {
   });
 
   afterEach(async () => {
-    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.db?.dropDatabase();
   });
 
   afterAll(async () => {
@@ -29,7 +29,7 @@ describe("Leaderboards", () => {
     const app = createApp();
     const { lesson } = await seedLessonWithQuiz("medium");
 
-    const t1 = await loginAndGetAccessToken(app, "u1@x.com");
+    const t1 = await loginAndGetAccessToken(app, "1000000017");
     await completeProfile(app, t1);
     await request(app)
       .post("/v1/attempts/submit")
@@ -45,7 +45,7 @@ describe("Leaderboards", () => {
         idempotencyKey: "u1-k1"
       });
 
-    const t2 = await loginAndGetAccessToken(app, "u2@x.com");
+    const t2 = await loginAndGetAccessToken(app, "1000000018");
     await completeProfile(app, t2);
     await request(app)
       .post("/v1/attempts/submit")
@@ -79,7 +79,7 @@ describe("Leaderboards", () => {
     const app = createApp();
     const { lesson } = await seedLessonWithQuiz("medium");
 
-    const token = await loginAndGetAccessToken(app, "grind@x.com");
+    const token = await loginAndGetAccessToken(app, "1000000019");
     await completeProfile(app, token);
 
     await request(app)
@@ -120,7 +120,7 @@ describe("Leaderboards", () => {
     const app = createApp();
     const { lesson } = await seedLessonWithQuiz("medium");
 
-    const token = await loginAndGetAccessToken(app, "fast@x.com");
+    const token = await loginAndGetAccessToken(app, "1000000020");
     await completeProfile(app, token);
 
     await request(app)

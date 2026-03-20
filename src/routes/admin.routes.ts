@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireSuperAdmin } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
 
 import {
@@ -12,9 +12,43 @@ import {
   restoreStandard, restoreSubject, restoreUnit, restoreChapter, restoreLesson, restoreQuiz, jobsStatus, listAdminAuditLogs
 } from "../controllers/admin.controller";
 
+import { getAdminDashboardMetrics } from "../controllers/admin.dashboard.controller";
+import { listUsers, editUser, deleteUser, awardBadge, awardXP, getUserProfile, createAdminAccount, resetUserProgress } from "../controllers/admin.users.controller";
+import { listEvents, createEvent, updateEvent, deleteEvent } from "../controllers/admin.events.controller";
+import { listNotifications, sendNotification } from "../controllers/admin.notifications.controller";
+import { listBadges, createBadge, updateBadge, deleteBadge } from "../controllers/admin.badges.controller";
+import { getLeaderboardConfig, updateLeaderboardConfig, resetLeaderboard, getApiLogs } from "../controllers/admin.system.controller";
+import { listJobs, retryJob, deleteJob } from "../controllers/admin.jobs.controller";
+
 export const adminRouter = Router();
 
 adminRouter.use(requireAuth, requireAdmin);
+
+adminRouter.get("/metrics", getAdminDashboardMetrics);
+
+adminRouter.post("/admins", requireSuperAdmin, createAdminAccount);
+
+adminRouter.get("/notifications", listNotifications);
+adminRouter.post("/notifications", sendNotification);
+
+adminRouter.get("/events", listEvents);
+adminRouter.post("/events", createEvent);
+adminRouter.patch("/events/:id", updateEvent);
+adminRouter.delete("/events/:id", deleteEvent);
+
+adminRouter.get("/badges", listBadges);
+adminRouter.post("/badges", createBadge);
+adminRouter.patch("/badges/:id", updateBadge);
+adminRouter.delete("/badges/:id", deleteBadge);
+
+adminRouter.get("/system/leaderboard", getLeaderboardConfig);
+adminRouter.patch("/system/leaderboard", requireSuperAdmin, updateLeaderboardConfig);
+adminRouter.post("/system/leaderboard/reset", requireSuperAdmin, resetLeaderboard);
+adminRouter.get("/system/api-logs", requireSuperAdmin, getApiLogs);
+
+adminRouter.get("/jobs", requireSuperAdmin, listJobs);
+adminRouter.post("/jobs/:id/retry", requireSuperAdmin, retryJob);
+adminRouter.delete("/jobs/:id", requireSuperAdmin, deleteJob);
 
 adminRouter.get("/standards", listStandards);
 adminRouter.post("/standards", createStandard);
@@ -55,3 +89,11 @@ adminRouter.patch("/quizzes/:id/restore", restoreQuiz);
 
 adminRouter.get("/jobs/status", jobsStatus);
 adminRouter.get("/audit", listAdminAuditLogs);
+
+adminRouter.get("/users", listUsers);
+adminRouter.patch("/users/:id", editUser);
+adminRouter.delete("/users/:id", deleteUser);
+adminRouter.post("/users/:id/badges", awardBadge);
+adminRouter.post("/users/:id/xp", awardXP);
+adminRouter.post("/users/:id/reset-progress", resetUserProgress);
+adminRouter.get("/users/:id/profile", getUserProfile);

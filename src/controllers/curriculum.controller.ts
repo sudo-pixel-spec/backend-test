@@ -15,31 +15,45 @@ export async function getStandards(_req: Request, res: Response) {
 
 export async function getSubjects(req: Request, res: Response) {
   const { standardId } = req.query;
-  const subjects = await Subject.find({ standardId }).sort({ orderIndex: 1 }).lean();
+  if (!standardId) return res.status(400).json(ok([]));
+
+  const subjects = await Subject.find({ standardId: String(standardId) }).sort({ orderIndex: 1 }).lean();
   res.json(ok(subjects));
 }
 
 export async function getUnits(req: Request, res: Response) {
   const { subjectId } = req.query;
-  const units = await Unit.find({ subjectId }).sort({ orderIndex: 1 }).lean();
+  if (!subjectId) return res.status(400).json(ok([]));
+
+  const units = await Unit.find({ subjectId: String(subjectId) }).sort({ orderIndex: 1 }).lean();
   res.json(ok(units));
 }
 
 export async function getChapters(req: Request, res: Response) {
   const { unitId } = req.query;
-  const chapters = await Chapter.find({ unitId }).sort({ orderIndex: 1 }).lean();
+  if (!unitId) return res.status(400).json(ok([]));
+
+  const chapters = await Chapter.find({ unitId: String(unitId) }).sort({ orderIndex: 1 }).lean();
   res.json(ok(chapters));
 }
 
 export async function getLessons(req: AuthRequest, res: Response) {
   const { chapterId } = req.query;
 
-  const lessons = await Lesson.find({ chapterId })
+  if (!chapterId) {
+    return res.status(400).json(ok([]));
+  }
+
+  const lessons = await Lesson.find({ chapterId: String(chapterId) })
     .sort({ orderIndex: 1 })
     .lean();
 
+  if (!req.user?.id) {
+    return res.status(401).json(ok([]));
+  }
+
   const attempts = await Attempt.find({
-    userId: req.user?.id,
+    userId: req.user.id,
     lessonId: { $in: lessons.map((l) => l._id) }
   }).lean();
 
@@ -48,7 +62,7 @@ export async function getLessons(req: AuthRequest, res: Response) {
   const result = lessons.map((lesson, index) => {
     const completed = completedLessonIds.has(String(lesson._id));
     const unlocked =
-      index === 0 || completedLessonIds.has(String(lessons[index - 1]._id));
+      index === 0 || completedLessonIds.has(String(lessons[index - 1]?._id));
 
     return {
       ...lesson,

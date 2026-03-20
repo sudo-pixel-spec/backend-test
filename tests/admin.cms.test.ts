@@ -17,11 +17,15 @@ import { seedLessonWithQuiz } from "./helpers/seedLessonQuiz";
 
 let replset: MongoMemoryReplSet;
 
-async function makeAdmin(app: any, email: string) {
-  const token = await loginAndGetAccessToken(app, email);
+async function makeAdmin(app: any, phone: string) {
+  const token = await loginAndGetAccessToken(app, phone);
   await completeProfile(app, token);
-  await User.updateOne({ email }, { $set: { role: "admin" } });
-  const token2 = await loginAndGetAccessToken(app, email);
+
+  const normalizedPhone = phone.replace(/\D/g, "");
+  const finalPhone = normalizedPhone.length === 10 ? `+91${normalizedPhone}` : normalizedPhone;
+
+  await User.updateOne({ phone: finalPhone }, { $set: { role: "admin", adminType: "super" } });
+  const token2 = await loginAndGetAccessToken(app, phone);
   return token2;
 }
 
@@ -32,7 +36,7 @@ describe("Admin CMS", () => {
   });
 
   afterEach(async () => {
-    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.db?.dropDatabase();
   });
 
   afterAll(async () => {
@@ -42,7 +46,7 @@ describe("Admin CMS", () => {
 
   it("should forbid non-admin access", async () => {
     const app = createApp();
-    const token = await loginAndGetAccessToken(app, "user@x.com");
+    const token = await loginAndGetAccessToken(app, "1000000001");
     await completeProfile(app, token);
 
     const res = await request(app)
@@ -54,7 +58,7 @@ describe("Admin CMS", () => {
 
   it("admin can create/list/update/delete standard", async () => {
     const app = createApp();
-    const adminToken = await makeAdmin(app, "admin@x.com");
+    const adminToken = await makeAdmin(app, "1000000002");
 
     const createRes = await request(app)
       .post("/v1/admin/standards")
@@ -93,7 +97,7 @@ describe("Admin CMS", () => {
 
   it("admin can create next quiz version for a lesson", async () => {
     const app = createApp();
-    const adminToken = await makeAdmin(app, "admin2@x.com");
+    const adminToken = await makeAdmin(app, "1000000003");
 
     const seeded = await seedLessonWithQuiz("medium");
     const lessonId = seeded.lesson._id.toString();
@@ -126,7 +130,7 @@ describe("Admin CMS", () => {
 
   it("publish safeguard: only one published quiz per lesson", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "adminpub@x.com");
+  const adminToken = await makeAdmin(app, "1000000004");
 
   const seeded = await seedLessonWithQuiz("medium");
   const lessonId = seeded.lesson._id.toString();
@@ -170,7 +174,7 @@ describe("Admin CMS", () => {
 
 it("delete safeguard: cannot delete standard if subjects exist", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "guard1@x.com");
+  const adminToken = await makeAdmin(app, "1000000005");
 
   const std = await request(app)
     .post("/v1/admin/standards")
@@ -192,7 +196,7 @@ it("delete safeguard: cannot delete standard if subjects exist", async () => {
 
 it("delete safeguard: cannot delete subject if units exist", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "guard2@x.com");
+  const adminToken = await makeAdmin(app, "1000000006");
 
   const std = await request(app)
     .post("/v1/admin/standards")
@@ -212,7 +216,7 @@ it("delete safeguard: cannot delete subject if units exist", async () => {
 
 it("delete safeguard: cannot delete unit if chapters exist", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "guard3@x.com");
+  const adminToken = await makeAdmin(app, "1000000007");
 
   const std = await request(app)
     .post("/v1/admin/standards")
@@ -233,7 +237,7 @@ it("delete safeguard: cannot delete unit if chapters exist", async () => {
 
 it("delete safeguard: cannot delete chapter if lessons exist", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "guard4@x.com");
+  const adminToken = await makeAdmin(app, "1000000008");
 
   const std = await request(app)
     .post("/v1/admin/standards")
@@ -256,7 +260,7 @@ it("delete safeguard: cannot delete chapter if lessons exist", async () => {
 
 it("delete safeguard: cannot delete lesson if quizzes exist", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "guard5@x.com");
+  const adminToken = await makeAdmin(app, "1000000009");
 
   const seeded = await seedLessonWithQuiz("medium");
   const lessonId = seeded.lesson._id.toString();
@@ -271,12 +275,12 @@ it("delete safeguard: cannot delete lesson if quizzes exist", async () => {
 
 it("delete safeguard: cannot delete lesson if attempts exist", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "guard6@x.com");
+  const adminToken = await makeAdmin(app, "1000000010");
 
   const seeded = await seedLessonWithQuiz("medium");
   const lessonId = seeded.lesson._id.toString();
 
-  const token = await loginAndGetAccessToken(app, "attempt@x.com");
+  const token = await loginAndGetAccessToken(app, "1000000011");
   await completeProfile(app, token);
 
   await request(app)
@@ -303,7 +307,7 @@ it("delete safeguard: cannot delete lesson if attempts exist", async () => {
 
 it("soft delete: deleted items excluded from admin list by default, included with includeDeleted=true, and can be restored", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "soft@x.com");
+  const adminToken = await makeAdmin(app, "1000000012");
 
   const createRes = await request(app)
     .post("/v1/admin/standards")
@@ -349,7 +353,7 @@ it("soft delete: deleted items excluded from admin list by default, included wit
 
 it("admin jobs status returns enabled false when jobs disabled", async () => {
   const app = createApp();
-  const adminToken = await makeAdmin(app, "jobs@x.com");
+  const adminToken = await makeAdmin(app, "1000000013");
 
   process.env.JOBS_ENABLED = "false";
 

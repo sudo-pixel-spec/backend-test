@@ -72,12 +72,13 @@ export async function submitAttempt(req: AuthRequest, res: Response) {
     user.totalXP += xp;
     user.level = calculateLevel(user.totalXP);
 
-    const streakResult = updateStreak(user.lastActiveDate);
+    const streakResult = updateStreak(user.lastActiveDate ?? null);
     if (streakResult.newStreak) user.streakCount = streakResult.newStreak;
     if (streakResult.increment) user.streakCount += 1;
     if (streakResult.reset) user.streakCount = 1;
     user.lastActiveDate = streakResult.today;
 
+    if (!user.wallet) user.wallet = { coins: 0, diamonds: 0 };
     user.wallet.coins += coins;
     user.wallet.diamonds += diamonds;
 
@@ -137,7 +138,7 @@ export async function submitAttempt(req: AuthRequest, res: Response) {
           xpAwarded: xp,
           coinsAwarded: coins,
           diamondsAwarded: diamonds,
-          timeSpentSec,
+          timeSpentSec: timeSpentSec ?? null,
           idempotencyKey
         }
       ],

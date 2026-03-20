@@ -10,16 +10,19 @@ import { seedCurriculumStd8 } from "./helpers/seedCurriculum";
 
 let mongod: MongoMemoryServer;
 
-async function loginAndGetAccessToken(app: any, email: string) {
-  await request(app).post("/v1/auth/request-otp").send({ email });
+async function loginAndGetAccessToken(app: any, phone: string) {
+  await request(app).post("/v1/auth/request-otp").send({ phone });
 
   const knownOtp = "123456";
-  const rec = await Otp.findOne({ email });
+  const normalizedPhone = phone.replace(/\D/g, "");
+  const finalPhone = normalizedPhone.length === 10 ? `+91${normalizedPhone}` : normalizedPhone;
+
+  const rec = await Otp.findOne({ phone: finalPhone });
   if (!rec) throw new Error("OTP record missing");
   rec.otpHash = await bcrypt.hash(knownOtp, 10);
   await rec.save();
 
-  const res = await request(app).post("/v1/auth/verify-otp").send({ email, otp: knownOtp });
+  const res = await request(app).post("/v1/auth/verify-otp").send({ phone, otp: knownOtp });
   return res.body.data.accessToken as string;
 }
 
@@ -41,7 +44,7 @@ describe("Curriculum + Unlocking", () => {
   });
 
   afterEach(async () => {
-    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.db?.dropDatabase();
   });
 
   afterAll(async () => {
@@ -106,7 +109,7 @@ describe("Curriculum + Unlocking", () => {
     const resNoAuth = await request(app).get("/v1/lessons").query({ chapterId: seeded.chapter._id.toString() });
     expect(resNoAuth.status).toBe(401);
 
-    const token = await loginAndGetAccessToken(app, "a@b.com");
+    const token = await loginAndGetAccessToken(app, "1111111111");
     const resNoProfile = await request(app)
       .get("/v1/lessons")
       .query({ chapterId: seeded.chapter._id.toString() })
@@ -121,7 +124,7 @@ describe("Curriculum + Unlocking", () => {
     const app = createApp();
     const seeded = await seedCurriculumStd8();
 
-    const token = await loginAndGetAccessToken(app, "unlock@b.com");
+    const token = await loginAndGetAccessToken(app, "2222222222");
     await completeProfile(app, token);
 
     const res1 = await request(app)
@@ -149,7 +152,7 @@ describe("Curriculum + Unlocking", () => {
 
     await Attempt.create({
   userId,
-  lessonId: seeded.lessons[0]._id,
+  lessonId: seeded.lessons[0]!._id,
   quizVersion: 1,
   answers: [],
   score: 1,

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { env } from "../config/env";
 
 export interface AIResponse {
   content: string;
@@ -27,12 +28,12 @@ class OpenAIProvider implements AIProvider {
   private client: OpenAI;
 
   constructor() {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not set");
     }
 
     this.client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: env.OPENAI_API_KEY,
     });
   }
 
@@ -42,10 +43,15 @@ class OpenAIProvider implements AIProvider {
       messages,
     });
 
-    return {
+    const response: AIResponse = {
       content: completion.choices?.[0]?.message?.content ?? "",
-      tokenCount: completion.usage?.total_tokens,
     };
+
+    if (completion.usage?.total_tokens != null) {
+      response.tokenCount = completion.usage.total_tokens;
+    }
+
+    return response;
   }
 }
 

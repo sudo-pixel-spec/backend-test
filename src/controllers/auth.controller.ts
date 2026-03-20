@@ -1,4 +1,6 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
+import fs from "fs";
+import path from "path";
 import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import { ok, fail } from "../utils/apiResponse";
@@ -9,9 +11,22 @@ import { signAccessToken, signRefreshToken, hashToken, verifyToken, compareToken
 import { env } from "../config/env";
 import { enqueueNow } from "../jobs/enqueue";
 import { JOBS } from "../jobs/definitions";
+import { smsProvider } from "../services/smsProvider";
 
-const RequestOtpSchema = z.object({ email: z.string().email() });
-const VerifyOtpSchema = z.object({ email: z.string().email(), otp: z.string().min(6).max(6) });
+function normalizeIndianPhone(raw: string) {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
+  return raw.trim();
+}
+
+const RequestOtpSchema = z.object({
+  phone: z.string().transform(normalizeIndianPhone).pipe(z.string().min(10))
+});
+const VerifyOtpSchema = z.object({
+  phone: z.string().transform(normalizeIndianPhone).pipe(z.string().min(10)),
+  otp: z.string().min(6).max(6)
+});
 
 const GoogleSchema = z.object({
   credential: z.string().min(20)
@@ -28,18 +43,21 @@ function setRefreshCookie(res: Response, refreshToken: string) {
 }
 
 export async function requestOtp(req: Request, res: Response) {
+  console.log(`[TRACE] requestOtp hit with body:`, req.body);
   const parsed = RequestOtpSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json(fail("VALIDATION", "Invalid email", parsed.error.flatten()));
+    return res.status(400).json(fail("VALIDATION", "Invalid phone number", parsed.error.flatten()));
   }
 
-  const { email } = parsed.data;
+  const { phone } = parsed.data;
+  const otp = await createOtp(phone, req.ip);
 
-  const otp = await createOtp(email, req.ip);
+  await smsProvider.sendOtp(phone, otp);
 
-  await enqueueNow(JOBS.SEND_OTP_EMAIL, { email, otp });
+  const logMsg = `[${new Date().toISOString()}] OTP for ${phone}: ${otp}\n`;
+  fs.appendFileSync(path.join(process.cwd(), "debug_otp.txt"), logMsg);
 
-  return res.json(ok({ message: "OTP sent" }));
+  return res.json(ok({ message: "OTP sent successfully" }));
 }
 
 export async function verifyOtp(req: Request, res: Response) {
@@ -48,27 +66,30 @@ export async function verifyOtp(req: Request, res: Response) {
     return res.status(400).json(fail("VALIDATION", "Invalid payload", parsed.error.flatten()));
   }
 
-  const { email, otp } = parsed.data;
+  const { phone, otp } = parsed.data;
 
-  const result = await verifyOtpSvc(email, otp);
+  const result = await verifyOtpSvc(phone, otp);
   if (!result.ok) {
     return res.status(401).json(fail(result.reason, "OTP verification failed", result));
   }
 
-  let user = await User.findOne({ email });
-  if (!user) user = await User.create({ email, role: "learner" });
+  let user = await User.findOne({ phone });
+  if (!user) user = await User.create({ phone, role: "learner" });
 
   const accessToken = signAccessToken({ sub: String(user._id), role: user.role });
   const refreshToken = signRefreshToken({ sub: String(user._id), role: user.role });
 
   const tokenHash = await hashToken(refreshToken);
 
+  const deviceId = req.headers["x-device-id"] || req.body.deviceId || "unknown";
+
   await RefreshToken.create({
     userId: user._id,
     tokenHash,
     expiresAt: new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000),
-    createdIp: req.ip,
-    userAgent: req.get("user-agent")
+    createdIp: req.ip || null,
+    userAgent: req.get("user-agent") || null,
+    deviceId: String(deviceId)
   });
 
   setRefreshCookie(res, refreshToken);
@@ -78,9 +99,12 @@ export async function verifyOtp(req: Request, res: Response) {
       accessToken,
       user: {
         id: String(user._id),
-        email: user.email,
+        phone: user.phone,
         role: user.role,
-        profileComplete: user.profileComplete
+        adminType: (user as any).adminType,
+        allocatedStandards: (user as any).allocatedStandards,
+        profileComplete: user.profileComplete,
+        onboardingComplete: user.onboardingComplete
       }
     })
   );
@@ -152,12 +176,15 @@ export async function googleSignIn(req: Request, res: Response) {
 
   const tokenHash = await hashToken(refreshToken);
 
+  const deviceId = req.headers["x-device-id"] || req.body.deviceId || "unknown";
+
   await RefreshToken.create({
     userId: user!._id,
     tokenHash,
     expiresAt: new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000),
-    createdIp: req.ip,
-    userAgent: req.get("user-agent")
+    createdIp: req.ip || null,
+    userAgent: req.get("user-agent") || null,
+    deviceId: String(deviceId)
   });
 
   setRefreshCookie(res, refreshToken);
@@ -169,7 +196,10 @@ export async function googleSignIn(req: Request, res: Response) {
         id: String(user!._id),
         email: user!.email,
         role: user!.role,
-        profileComplete: user!.profileComplete
+        adminType: (user as any).adminType,
+        allocatedStandards: (user as any).allocatedStandards,
+        profileComplete: user!.profileComplete,
+        onboardingComplete: (user as any).onboardingComplete || false
       }
     })
   );
@@ -211,8 +241,8 @@ export async function refresh(req: Request, res: Response) {
     userId: decoded.sub,
     tokenHash: newHash,
     expiresAt: new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000),
-    createdIp: req.ip,
-    userAgent: req.get("user-agent")
+    createdIp: req.ip || null,
+    userAgent: req.get("user-agent") || null
   });
 
   setRefreshCookie(res, newRefresh);

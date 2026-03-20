@@ -8,13 +8,10 @@ export const JOBS = {
   AI_LOG: "aiLog"
 } as const;
 
+export type JobName = (typeof JOBS)[keyof typeof JOBS];
+
 export function defineJobs(agenda: any) {
   agenda.define(JOBS.SEND_OTP_EMAIL, { priority: "high", concurrency: 10 }, sendOtpEmailJob);
   agenda.define(JOBS.AI_LOG, { priority: "low", concurrency: 5 }, aiLogJob);
-
-  agenda.define(
-    JOBS.RECOMPUTE_WEEKLY_LEADERBOARD,
-    { priority: "normal", concurrency: 1 },
-    recomputeWeeklyLeaderboardJob
-  );
+  agenda.define(JOBS.RECOMPUTE_WEEKLY_LEADERBOARD, { priority: "normal", concurrency: 1 }, recomputeWeeklyLeaderboardJob);
 }

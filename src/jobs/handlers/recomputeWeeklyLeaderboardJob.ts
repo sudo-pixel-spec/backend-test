@@ -1,7 +1,6 @@
 import type { Job } from "agenda";
-import { UserWeeklyStats } from "../../models/UserWeeklyStats";
+import { recomputeWeeklyLeaderboard } from "../tasks/recomputeWeeklyLeaderboard";
 
-export async function recomputeWeeklyLeaderboardJob(_job: Job) {
-
-  await UserWeeklyStats.countDocuments();
+export async function recomputeWeeklyLeaderboardJob(job: Job) {
+  await recomputeWeeklyLeaderboard(job.attrs.data);
 }

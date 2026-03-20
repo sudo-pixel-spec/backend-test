@@ -18,14 +18,10 @@ async function main() {
   const useAgenda = env.JOBS_DRIVER === "agenda";
 
   if (jobsEnabled && useAgenda) {
-    const { getAgenda } = require("./jobs/agenda");
-
-    agenda = await getAgenda();
-
-    defineJobs(agenda);
-
-    await agenda.start();
-
+    const { agendaManager } = require("./jobs/agendaManager");
+    await agendaManager.initialize();
+    
+    const agenda = await agendaManager.getAgenda();
     await agenda.every("5 minutes", JOBS.RECOMPUTE_WEEKLY_LEADERBOARD);
   }
 
@@ -35,9 +31,10 @@ async function main() {
 
       await new Promise<void>((resolve) => server.close(() => resolve()));
 
-      if (agenda) {
+      if (agenda || (jobsEnabled && useAgenda)) {
         console.log("Stopping agenda...");
-        await agenda.stop();
+        const { agendaManager } = require("./jobs/agendaManager");
+        await agendaManager.stop();
       }
 
       await disconnectDB();

@@ -12,6 +12,8 @@ import { Quiz } from "../models/Quiz";
 import { Attempt } from "../models/Attempt";
 import { writeAdminAudit } from "../services/adminAudit";
 import { AdminAuditLog } from "../models/AdminAuditLog";
+import { User } from "../models/User";
+import { agendaManager } from "../jobs/agendaManager";
 
 function parsePaging(req: Request) {
   const page = Math.max(1, Number(req.query.page ?? 1));
@@ -35,15 +37,12 @@ const StandardUpdate = z.object({
 });
 
 export async function jobsStatus(req: any, res: any) {
-  if (process.env.JOBS_ENABLED !== "true") {
-    return res.json(ok({ enabled: false }));
-  }
-
   try {
-    const agenda = getAgenda();
-    return res.json(ok({ enabled: true, name: agenda.name }));
-  } catch {
-    return res.status(500).json(fail("JOBS_NOT_READY", "Jobs enabled but agenda not initialized"));
+    const status = await agendaManager.getStatus();
+    return res.json(ok(status));
+  } catch (err: any) {
+    console.error("[jobsStatus] failed:", err);
+    return res.status(500).json(fail("JOBS_ERROR", err.message));
   }
 }
 
@@ -53,6 +52,11 @@ export async function listStandards(req: Request, res: Response) {
   const filter: any = {};
   const includeDeleted = String(req.query.includeDeleted ?? "false") === "true";
   if (!includeDeleted) filter.deletedAt = null;
+
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+    filter._id = { $in: adminUser.allocatedStandards };
+  }
 
   const q = Standard.find(filter).sort({ name: 1 }).skip(skip).limit(limit);
   if (includeDeleted) q.setOptions({ includeDeleted: true });
@@ -74,7 +78,7 @@ export async function createStandard(req: Request, res: Response) {
       .status(400)
       .json(fail("VALIDATION", "Invalid payload", parsed.error.flatten()));
 
-  const created = await Standard.create(parsed.data);
+  const created = await Standard.create(parsed.data as any);
   await writeAdminAudit(req as any, {
     action: "CREATE",
     entity: "Standard",
@@ -174,6 +178,16 @@ export async function listSubjects(req: Request, res: Response) {
   const includeDeleted = String(req.query.includeDeleted ?? "false") === "true";
   if (!includeDeleted) filter.deletedAt = null;
 
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+    if (filter.standardId) {
+       const isAllowed = adminUser.allocatedStandards.some((id: any) => String(id) === String(filter.standardId));
+       if (!isAllowed) filter.standardId = null;
+    } else {
+       filter.standardId = { $in: adminUser.allocatedStandards };
+    }
+  }
+
   const q = Subject.find(filter).sort({ orderIndex: 1 }).skip(skip).limit(limit);
   if (includeDeleted) q.setOptions({ includeDeleted: true });
 
@@ -194,7 +208,7 @@ export async function createSubject(req: Request, res: Response) {
       .status(400)
       .json(fail("VALIDATION", "Invalid payload", parsed.error.flatten()));
 
-  const created = await Subject.create(parsed.data);
+  const created = await Subject.create(parsed.data as any);
   await writeAdminAudit(req as any, {
     action: "CREATE",
     entity: "Subject",
@@ -294,6 +308,19 @@ export async function listUnits(req: Request, res: Response) {
   const includeDeleted = String(req.query.includeDeleted ?? "false") === "true";
   if (!includeDeleted) filter.deletedAt = null;
 
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+     const allowedSubjects = await Subject.find({ standardId: { $in: adminUser.allocatedStandards } }).select("_id").lean();
+     const allowedSubjectIds = allowedSubjects.map((s: any) => String(s._id));
+     if (filter.subjectId) {
+        if (!allowedSubjectIds.includes(String(filter.subjectId))) {
+           filter.subjectId = null;
+        }
+     } else {
+        filter.subjectId = { $in: allowedSubjectIds };
+     }
+  }
+
   const q = Unit.find(filter).sort({ orderIndex: 1 }).skip(skip).limit(limit);
   if (includeDeleted) q.setOptions({ includeDeleted: true });
 
@@ -314,7 +341,7 @@ export async function createUnit(req: Request, res: Response) {
       .status(400)
       .json(fail("VALIDATION", "Invalid payload", parsed.error.flatten()));
 
-  const created = await Unit.create(parsed.data);
+  const created = await Unit.create(parsed.data as any);
   await writeAdminAudit(req as any, {
     action: "CREATE",
     entity: "Unit",
@@ -414,6 +441,19 @@ export async function listChapters(req: Request, res: Response) {
   const includeDeleted = String(req.query.includeDeleted ?? "false") === "true";
   if (!includeDeleted) filter.deletedAt = null;
 
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+     const allowedSubjects = await Subject.find({ standardId: { $in: adminUser.allocatedStandards } }).select("_id").lean();
+     const allowedUnits = await Unit.find({ subjectId: { $in: allowedSubjects.map(s => s._id) } }).select("_id").lean();
+     const allowedUnitIds = allowedUnits.map((u: any) => String(u._id));
+
+     if (filter.unitId) {
+        if (!allowedUnitIds.includes(String(filter.unitId))) filter.unitId = null;
+     } else {
+        filter.unitId = { $in: allowedUnitIds };
+     }
+  }
+
   const q = Chapter.find(filter).sort({ orderIndex: 1 }).skip(skip).limit(limit);
   if (includeDeleted) q.setOptions({ includeDeleted: true });
 
@@ -434,7 +474,7 @@ export async function createChapter(req: Request, res: Response) {
       .status(400)
       .json(fail("VALIDATION", "Invalid payload", parsed.error.flatten()));
 
-  const created = await Chapter.create(parsed.data);
+  const created = await Chapter.create(parsed.data as any);
   await writeAdminAudit(req as any, {
     action: "CREATE",
     entity: "Chapter",
@@ -541,6 +581,20 @@ export async function listLessons(req: Request, res: Response) {
   const includeDeleted = String(req.query.includeDeleted ?? "false") === "true";
   if (!includeDeleted) filter.deletedAt = null;
 
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+     const allowedSubjects = await Subject.find({ standardId: { $in: adminUser.allocatedStandards } }).select("_id").lean();
+     const allowedUnits = await Unit.find({ subjectId: { $in: allowedSubjects.map(s => s._id) } }).select("_id").lean();
+     const allowedChapters = await Chapter.find({ unitId: { $in: allowedUnits.map(u => u._id) } }).select("_id").lean();
+     const allowedChapterIds = allowedChapters.map((c: any) => String(c._id));
+
+     if (filter.chapterId) {
+        if (!allowedChapterIds.includes(String(filter.chapterId))) filter.chapterId = null;
+     } else {
+        filter.chapterId = { $in: allowedChapterIds };
+     }
+  }
+
   const q = Lesson.find(filter).sort({ orderIndex: 1 }).skip(skip).limit(limit);
   if (includeDeleted) q.setOptions({ includeDeleted: true });
 
@@ -561,7 +615,7 @@ export async function createLesson(req: Request, res: Response) {
       .status(400)
       .json(fail("VALIDATION", "Invalid payload", parsed.error.flatten()));
 
-  const created = await Lesson.create(parsed.data);
+  const created = await Lesson.create(parsed.data as any);
   await writeAdminAudit(req as any, {
     action: "CREATE",
     entity: "Lesson",
@@ -662,6 +716,20 @@ export async function getLatestQuizForLesson(req: Request, res: Response) {
   if (!lessonId)
     return res.status(400).json(fail("VALIDATION", "lessonId is required"));
 
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+     const lesson = await Lesson.findById(lessonId).lean();
+     if (!lesson) return res.status(404).json(fail("NOT_FOUND", "Lesson not found"));
+     
+     const chapter = await Chapter.findById(lesson.chapterId).lean();
+     const unit = await Unit.findById(chapter?.unitId).lean();
+     const subject = await Subject.findById(unit?.subjectId).lean();
+     
+     if (!adminUser.allocatedStandards.map((id: any) => String(id)).includes(String(subject?.standardId))) {
+        return res.status(403).json(fail("FORBIDDEN", "You are not allowed to access quizzes for this lesson"));
+     }
+  }
+
   const quiz = await Quiz.findOne({ lessonId }).sort({ version: -1 }).lean();
   if (!quiz) return res.status(404).json(fail("NOT_FOUND", "No quiz for lesson"));
   return res.json(ok(quiz));
@@ -675,6 +743,20 @@ export async function createQuizVersion(req: Request, res: Response) {
       .json(fail("VALIDATION", "Invalid payload", parsed.error.flatten()));
 
   const { lessonId, questions, difficulty, source, published } = parsed.data;
+
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+     const lesson = await Lesson.findById(lessonId).lean();
+     if (!lesson) return res.status(404).json(fail("NOT_FOUND", "Lesson not found"));
+     
+     const chapter = await Chapter.findById(lesson.chapterId).lean();
+     const unit = await Unit.findById(chapter?.unitId).lean();
+     const subject = await Subject.findById(unit?.subjectId).lean();
+     
+     if (!adminUser.allocatedStandards.map((id: any) => String(id)).includes(String(subject?.standardId))) {
+        return res.status(403).json(fail("FORBIDDEN", "You are not allowed to create quizzes for this lesson"));
+     }
+  }
 
   const latest = await Quiz.findOne({ lessonId }).sort({ version: -1 }).lean();
   const nextVersion = latest ? (latest.version ?? 0) + 1 : 1;
@@ -725,13 +807,23 @@ export async function setQuizPublished(req: Request, res: Response) {
       .status(400)
       .json(fail("VALIDATION", "Invalid payload", parsed.error.flatten()));
 
-  const updated = await Quiz.findByIdAndUpdate(
-    p.data.id,
-    { published: parsed.data.published },
-    { new: true }
-  ).lean();
-
+  const updated = await Quiz.findById(p.data.id);
   if (!updated) return res.status(404).json(fail("NOT_FOUND", "Quiz not found"));
+
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+     const lesson = await Lesson.findById(updated.lessonId).lean();
+     const chapter = await Chapter.findById(lesson?.chapterId).lean();
+     const unit = await Unit.findById(chapter?.unitId).lean();
+     const subject = await Subject.findById(unit?.subjectId).lean();
+     
+     if (!adminUser.allocatedStandards.map((id: any) => String(id)).includes(String(subject?.standardId))) {
+        return res.status(403).json(fail("FORBIDDEN", "Access denied"));
+     }
+  }
+
+  updated.published = parsed.data.published;
+  await (updated as any).save();
 
   await writeAdminAudit(req as any, {
     action: "PUBLISH",
@@ -750,6 +842,18 @@ export async function publishQuizExclusive(req: Request, res: Response) {
 
   const quiz = await Quiz.findById(p.data.id);
   if (!quiz) return res.status(404).json(fail("NOT_FOUND", "Quiz not found"));
+
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards) {
+     const lesson = await Lesson.findById(quiz.lessonId).lean();
+     const chapter = await Chapter.findById(lesson?.chapterId).lean();
+     const unit = await Unit.findById(chapter?.unitId).lean();
+     const subject = await Subject.findById(unit?.subjectId).lean();
+     
+     if (!adminUser.allocatedStandards.map((id: any) => String(id)).includes(String(subject?.standardId))) {
+        return res.status(403).json(fail("FORBIDDEN", "Access denied"));
+     }
+  }
 
   const session = await mongoose.startSession();
   try {
@@ -947,6 +1051,23 @@ export async function listAdminAuditLogs(req: Request, res: Response) {
 
   if (parsed.data.entity && parsed.data.entity !== "ALL") {
     filter.entity = parsed.data.entity;
+  }
+
+  const adminUser = (req as any).user;
+  if (adminUser?.adminType === "regular" && adminUser.allocatedStandards?.length) {
+    const allocatedStandards = adminUser.allocatedStandards.map((id: any) => String(id));
+    
+    const usersInStandards = await User.find({ "profile.standard": { $in: allocatedStandards } }).select("_id").lean();
+    const userIds = usersInStandards.map(u => u._id);
+    
+    const subjectsInStandards = await Subject.find({ standardId: { $in: allocatedStandards } }).select("_id").lean();
+    const subjectIds = subjectsInStandards.map(s => s._id);
+    
+    filter.$or = [
+      { adminId: adminUser._id },
+      { entityId: { $in: [...allocatedStandards, ...userIds] } },
+      { entityId: { $in: subjectIds }, entity: "Subject" }
+    ];
   }
 
   const [items, total] = await Promise.all([
