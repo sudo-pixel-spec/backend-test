@@ -3,6 +3,8 @@ import { z } from "zod";
 import { ok, fail } from "../utils/apiResponse";
 import { Notification } from "../models/Notification";
 import { User } from "../models/User";
+import * as OneSignal from '@onesignal/node-onesignal';
+import { env } from "../config/env";
 
 const NotificationCreateSchema = z.object({
   title: z.string().min(1),
@@ -59,6 +61,37 @@ export async function sendNotification(req: Request, res: Response) {
     status: "sent",
     sentAt: new Date()
   });
+
+  if (env.ONESIGNAL_APP_ID && env.ONESIGNAL_REST_API_KEY) {
+    try {
+      const configuration = OneSignal.createConfiguration({
+        restApiKey: env.ONESIGNAL_REST_API_KEY as string
+      });
+      const client = new OneSignal.DefaultApi(configuration);
+      const pushNotification = new OneSignal.Notification();
+
+      pushNotification.app_id = env.ONESIGNAL_APP_ID;
+      pushNotification.headings = { en: parsed.data.title };
+      pushNotification.contents = { en: parsed.data.message };
+
+      if (target.type === "all") {
+        pushNotification.included_segments = ["Subscribed Users"];
+      } else if (target.type === "user") {
+        pushNotification.include_aliases = { external_id: [target.value as string] };
+      } else if (target.type === "standard") {
+        pushNotification.filters = [
+          { field: "tag", key: "standard", relation: "=", value: target.value as string }
+        ];
+      }
+
+      await client.createNotification(pushNotification);
+      console.log(`[Push Notification] Sent successfully for targeting: ${target.type}`);
+    } catch (pushError) {
+      console.error("[Push Notification] Failed to send via OneSignal", pushError);
+    }
+  } else {
+    console.warn("[Push Notification] Skipped. Missing ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY in .env");
+  }
 
   return res.status(201).json(ok(notification));
 }

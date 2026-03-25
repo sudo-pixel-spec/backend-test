@@ -12,7 +12,7 @@ import {
   restoreStandard, restoreSubject, restoreUnit, restoreChapter, restoreLesson, restoreQuiz, jobsStatus, listAdminAuditLogs
 } from "../controllers/admin.controller";
 
-import { getAdminDashboardMetrics } from "../controllers/admin.dashboard.controller";
+import { getAdminDashboardMetrics, getRetentionAnalytics } from "../controllers/admin.dashboard.controller";
 import { listUsers, editUser, deleteUser, awardBadge, awardXP, getUserProfile, createAdminAccount, resetUserProgress } from "../controllers/admin.users.controller";
 import { listEvents, createEvent, updateEvent, deleteEvent } from "../controllers/admin.events.controller";
 import { listNotifications, sendNotification } from "../controllers/admin.notifications.controller";
@@ -25,6 +25,7 @@ export const adminRouter = Router();
 adminRouter.use(requireAuth, requireAdmin);
 
 adminRouter.get("/metrics", getAdminDashboardMetrics);
+adminRouter.get("/retention", getRetentionAnalytics);
 
 adminRouter.post("/admins", requireSuperAdmin, createAdminAccount);
 

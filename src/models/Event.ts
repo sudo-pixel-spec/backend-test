@@ -12,7 +12,7 @@ const EventSchema = new mongoose.Schema(
       badges: [{ type: String }]
     },
     status: { type: String, enum: ["draft", "published", "expired"], default: "draft" },
-    standardIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Standard" }],
+    standardIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Standard" }], // Which grades can see this
     creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
   },
   { timestamps: true }

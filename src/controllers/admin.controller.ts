@@ -1056,7 +1056,7 @@ export async function listAdminAuditLogs(req: Request, res: Response) {
   const adminUser = (req as any).user;
   if (adminUser?.adminType === "regular" && adminUser.allocatedStandards?.length) {
     const allocatedStandards = adminUser.allocatedStandards.map((id: any) => String(id));
-    
+
     const usersInStandards = await User.find({ "profile.standard": { $in: allocatedStandards } }).select("_id").lean();
     const userIds = usersInStandards.map(u => u._id);
     

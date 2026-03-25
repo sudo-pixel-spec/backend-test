@@ -10,13 +10,13 @@ async function seed() {
     let grade10 = await Standard.findOne({ code: "G10" });
     if (!grade10) {
       grade10 = await Standard.create({ code: "G10", name: "Grade 10", active: true });
-      console.log("✅ Created Standard: Grade 10");
+      console.log("Created Standard: Grade 10");
     }
 
     let grade12 = await Standard.findOne({ code: "G12" });
     if (!grade12) {
       grade12 = await Standard.create({ code: "G12", name: "Grade 12", active: true });
-      console.log("✅ Created Standard: Grade 12");
+      console.log("Created Standard: Grade 12");
     }
 
     const superAdminPhone = "+919999999999";
@@ -31,10 +31,10 @@ async function seed() {
         },
         profileComplete: true
       });
-      console.log("👑 Created Super Admin: +919999999999");
+      console.log("Created Super Admin: +919999999999");
     } else {
       await User.updateOne({ _id: superAdmin._id }, { role: "admin", adminType: "super" });
-      console.log("👑 Updated Super Admin status: +919999999999");
+      console.log("Updated Super Admin status: +919999999999");
     }
 
     const regularAdminPhone = "+918888888888";
@@ -50,7 +50,7 @@ async function seed() {
         },
         profileComplete: true
       });
-      console.log("👤 Created Regular Admin: +918888888888 (Assigned G10, G12)");
+      console.log("Created Regular Admin: +918888888888 (Assigned G10, G12)");
     } else {
       await User.updateOne(
         { _id: regularAdmin._id }, 
@@ -60,12 +60,12 @@ async function seed() {
           allocatedStandards: [grade10._id, grade12._id] 
         }
       );
-      console.log("👤 Updated Regular Admin status: +918888888888 (Assigned G10, G12)");
+      console.log("Updated Regular Admin status: +918888888888 (Assigned G10, G12)");
     }
 
     console.log("✨ Seeding Completed Successfully!");
   } catch (error) {
-    console.error("❌ Seeding Failed:", error);
+    console.error("Seeding Failed:", error);
   } finally {
     await disconnectDB();
   }

@@ -41,6 +41,7 @@ export async function getAnalytics(req: AuthRequest, res: Response) {
     }
     
     const longestStreak = Math.max(user.streakCount || 0, activeDays > 0 ? 1 : 0);
+
     const xpHistory = [];
     const today = new Date();
     

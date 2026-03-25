@@ -108,3 +108,26 @@ export async function getAdminDashboardMetrics(req: Request, res: Response) {
     }
   }));
 }
+
+export async function getRetentionAnalytics(req: Request, res: Response) {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const users = await User.find({ role: "learner", createdAt: { $gte: thirtyDaysAgo } }).select("createdAt lastActiveDate");
+  const cohort: Record<string, { total: number, active: number }> = {};
+  
+  users.forEach((u) => {
+    if (!u.createdAt) return;
+    const joinDate = u.createdAt.toISOString().split("T")[0];
+    if (!joinDate) return;
+
+    if (!cohort[joinDate]) cohort[joinDate] = { total: 0, active: 0 };
+    cohort[joinDate].total++;
+    
+    const lastActive = new Date(u.lastActiveDate || u.createdAt);
+    const diffDays = Math.floor((new Date().getTime() - lastActive.getTime()) / (1000 * 3600 * 24));
+    if (diffDays <= 7) cohort[joinDate].active++;
+  });
+  
+  return res.json(ok({ cohort, totalAnalyzed: users.length }));
+}

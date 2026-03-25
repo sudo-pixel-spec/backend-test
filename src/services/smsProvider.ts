@@ -1,4 +1,5 @@
 import { env } from "../config/env";
+import twilio from "twilio";
 
 export interface SmsProvider {
   sendOtp(phone: string, otp: string): Promise<void>;
@@ -16,13 +17,51 @@ export class ConsoleSmsProvider implements SmsProvider {
 
 export class Msg91SmsProvider implements SmsProvider {
   async sendOtp(phone: string, otp: string) {
-    console.log(`[SMS Msg91] (Implementation Pending) To: ${phone}, OTP: ${otp}`);
+    const { MSG91_AUTH_KEY, MSG91_TEMPLATE_ID } = env;
+    const url = "https://control.msg91.com/api/v5/otp";
+    const body = {
+      template_id: MSG91_TEMPLATE_ID,
+      mobile: phone.replace("+", ""),
+      authkey: MSG91_AUTH_KEY,
+      otp: otp,
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) {
+        throw new Error(`Msg91 Error: ${await response.text()}`);
+      }
+      console.log(`[SMS Msg91] Sent OTP to ${phone}`);
+    } catch (error) {
+      console.error("[SMS Msg91] Failed to send OTP", error);
+      throw error;
+    }
   }
 }
 
 export class TwilioSmsProvider implements SmsProvider {
+  private client: twilio.Twilio;
+
+  constructor() {
+    this.client = twilio(env.TWILIO_ACCOUNT_SID!, env.TWILIO_AUTH_TOKEN!);
+  }
+
   async sendOtp(phone: string, otp: string) {
-    console.log(`[SMS Twilio] (Implementation Pending) To: ${phone}, OTP: ${otp}`);
+    try {
+      await this.client.messages.create({
+        body: `Your Gamifyed OTP is ${otp}. Valid for 5 minutes.`,
+        from: env.TWILIO_FROM_NUMBER!,
+        to: phone
+      });
+      console.log(`[SMS Twilio] Sent OTP to ${phone}`);
+    } catch (error) {
+      console.error("[SMS Twilio] Failed to send OTP", error);
+      throw error;
+    }
   }
 }
 

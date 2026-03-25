@@ -53,6 +53,9 @@ const EnvSchema = z
     TWILIO_ACCOUNT_SID: z.string().optional(),
     TWILIO_AUTH_TOKEN: z.string().optional(),
     TWILIO_FROM_NUMBER: z.string().optional(),
+
+    ONESIGNAL_APP_ID: z.string().optional(),
+    ONESIGNAL_REST_API_KEY: z.string().optional(),
   })
   .superRefine((cfg, ctx) => {
 
@@ -128,6 +131,24 @@ const EnvSchema = z
           "GOOGLE_CLIENT_ID is required in production (frontend has Google sign-in)",
       });
     }
+
+    if (cfg.SMS_PROVIDER === "twilio") {
+      const required = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER"] as const;
+      for (const k of required) {
+        if (!(cfg as any)[k]) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [k], message: `${k} is required when SMS_PROVIDER=twilio` });
+        }
+      }
+    }
+
+    if (cfg.SMS_PROVIDER === "msg91") {
+      const required = ["MSG91_AUTH_KEY", "MSG91_TEMPLATE_ID"] as const;
+      for (const k of required) {
+        if (!(cfg as any)[k]) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [k], message: `${k} is required when SMS_PROVIDER=msg91` });
+        }
+      }
+    }
   });
 
 export const env = EnvSchema.parse({
@@ -174,4 +195,7 @@ export const env = EnvSchema.parse({
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
   TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER,
+
+  ONESIGNAL_APP_ID: process.env.ONESIGNAL_APP_ID,
+  ONESIGNAL_REST_API_KEY: process.env.ONESIGNAL_REST_API_KEY,
 });
