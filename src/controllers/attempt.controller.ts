@@ -172,3 +172,22 @@ export async function submitAttempt(req: AuthRequest, res: Response) {
     throw err;
   }
 }
+
+export async function getQuizForLesson(req: AuthRequest, res: Response) {
+  const { lessonId } = req.params;
+  if (!lessonId) return res.status(400).json(fail("VALIDATION", "lessonId is required"));
+
+  const quiz = await Quiz.findOne({ lessonId: String(lessonId), published: true }).sort({ version: -1 }).lean();
+  if (!quiz) return res.status(404).json(fail("NOT_FOUND", "Quiz not found for this lesson"));
+
+  // Redact correct answers before sending to learner
+  const redactedQuestions = quiz.questions.map((q: any) => {
+    const { answerIndex, ...rest } = q;
+    return rest;
+  });
+
+  res.json(ok({
+    ...quiz,
+    questions: redactedQuestions
+  }));
+}

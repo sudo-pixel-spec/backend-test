@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { ok } from "../utils/apiResponse";
+import { ok, fail } from "../utils/apiResponse";
 import { Standard } from "../models/Standard";
 import { Subject } from "../models/Subject";
 import { Unit } from "../models/Unit";
@@ -79,4 +79,11 @@ export async function getLessons(req: AuthRequest, res: Response) {
   });
 
   res.json(ok(result));
+}
+
+export async function getLessonById(req: Request, res: Response) {
+  const { id } = req.params;
+  const lesson = await Lesson.findById(id).lean();
+  if (!lesson) return res.status(404).json(fail("NOT_FOUND", "Lesson not found"));
+  res.json(ok(lesson));
 }

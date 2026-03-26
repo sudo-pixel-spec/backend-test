@@ -5,7 +5,8 @@ import {
   getSubjects,
   getUnits,
   getChapters,
-  getLessons
+  getLessons,
+  getLessonById
 } from "../controllers/curriculum.controller";
 
 export const curriculumRouter = Router();
@@ -15,3 +16,4 @@ curriculumRouter.get("/curriculum/subjects", getSubjects);
 curriculumRouter.get("/units", getUnits);
 curriculumRouter.get("/chapters", getChapters);
 curriculumRouter.get("/lessons", requireAuth, profileGate, getLessons);
+curriculumRouter.get("/lessons/:id", requireAuth, profileGate, getLessonById);
