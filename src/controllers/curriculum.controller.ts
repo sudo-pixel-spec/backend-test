@@ -17,7 +17,14 @@ export async function getSubjects(req: Request, res: Response) {
   const { standardId } = req.query;
   if (!standardId) return res.status(400).json(ok([]));
 
-  const subjects = await Subject.find({ standardId: String(standardId) }).sort({ orderIndex: 1 }).lean();
+  let actualStandardId = String(standardId);
+  if (!/^[0-9a-fA-F]{24}$/.test(actualStandardId)) {
+    const standard = await Standard.findOne({ code: actualStandardId }).lean();
+    if (!standard) return res.json(ok([]));
+    actualStandardId = String(standard._id);
+  }
+
+  const subjects = await Subject.find({ standardId: actualStandardId }).sort({ orderIndex: 1 }).lean();
   res.json(ok(subjects));
 }
 
