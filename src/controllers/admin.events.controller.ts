@@ -46,7 +46,7 @@ export async function createEvent(req: Request, res: Response) {
     status: parsed.data.status ?? "draft",
     description: parsed.data.description ?? "",
     rewards: parsed.data.rewards ?? { xp: 0, badges: [] },
-    creator: adminUser._id
+    creator: adminUser.id
   });
 
   return res.status(201).json(ok(event));

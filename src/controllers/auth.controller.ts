@@ -1,6 +1,4 @@
 import type { Request, Response } from "express";
-import fs from "fs";
-import path from "path";
 import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import { ok, fail } from "../utils/apiResponse";
@@ -43,7 +41,6 @@ function setRefreshCookie(res: Response, refreshToken: string) {
 }
 
 export async function requestOtp(req: Request, res: Response) {
-  console.log(`[TRACE] requestOtp hit with body:`, req.body);
   const parsed = RequestOtpSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(fail("VALIDATION", "Invalid phone number", parsed.error.flatten()));
@@ -53,9 +50,6 @@ export async function requestOtp(req: Request, res: Response) {
   const otp = await createOtp(phone, req.ip);
 
   await smsProvider.sendOtp(phone, otp);
-
-  const logMsg = `[${new Date().toISOString()}] OTP for ${phone}: ${otp}\n`;
-  fs.appendFileSync(path.join(process.cwd(), "debug_otp.txt"), logMsg);
 
   return res.json(ok({ message: "OTP sent successfully" }));
 }

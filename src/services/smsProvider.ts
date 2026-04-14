@@ -30,7 +30,7 @@ export class Msg91SmsProvider implements SmsProvider {
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
         throw new Error(`Msg91 Error: ${await response.text()}`);
@@ -44,10 +44,22 @@ export class Msg91SmsProvider implements SmsProvider {
 }
 
 export class TwilioSmsProvider implements SmsProvider {
-  private client: twilio.Twilio;
+  private _client: twilio.Twilio | null = null;
 
-  constructor() {
-    this.client = twilio(env.TWILIO_ACCOUNT_SID!, env.TWILIO_AUTH_TOKEN!);
+  private get client(): twilio.Twilio {
+    if (!this._client) {
+      const sid = env.TWILIO_ACCOUNT_SID;
+      const token = env.TWILIO_AUTH_TOKEN;
+
+      if (!sid || !token) {
+        throw new Error(
+          "[SMS] TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are required when SMS_PROVIDER=twilio"
+        );
+      }
+
+      this._client = twilio(sid, token);
+    }
+    return this._client;
   }
 
   async sendOtp(phone: string, otp: string) {
@@ -55,7 +67,7 @@ export class TwilioSmsProvider implements SmsProvider {
       await this.client.messages.create({
         body: `Your Gamifyed OTP is ${otp}. Valid for 5 minutes.`,
         from: env.TWILIO_FROM_NUMBER!,
-        to: phone
+        to: phone,
       });
       console.log(`[SMS Twilio] Sent OTP to ${phone}`);
     } catch (error) {
@@ -66,6 +78,10 @@ export class TwilioSmsProvider implements SmsProvider {
 }
 
 export function getSmsProvider(): SmsProvider {
+  if (env.NODE_ENV === "test") {
+    return new ConsoleSmsProvider();
+  }
+
   switch (env.SMS_PROVIDER) {
     case "msg91":
       return new Msg91SmsProvider();
@@ -76,4 +92,4 @@ export function getSmsProvider(): SmsProvider {
   }
 }
 
-export const smsProvider = getSmsProvider();
+export const smsProvider: SmsProvider = getSmsProvider();

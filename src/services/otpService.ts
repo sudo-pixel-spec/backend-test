@@ -6,9 +6,7 @@ function generateOtp(): string {
 }
 
 export async function createOtp(phone: string, ip?: string) {
-  console.log(`[TRACE] createOtp called for ${phone}`);
   const otp = generateOtp();
-  console.log(`[TRACE] Generated OTP: ${otp}`);
   const otpHash = await bcrypt.hash(otp, 10);
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 

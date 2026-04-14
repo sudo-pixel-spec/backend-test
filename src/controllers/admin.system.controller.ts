@@ -3,7 +3,14 @@ import { z } from "zod";
 import { ok, fail } from "../utils/apiResponse";
 import { writeAdminAudit } from "../services/adminAudit";
 import { User } from "../models/User";
+import { getRecentLogs } from "../utils/requestLogBuffer";
 
+/**
+ * NOTE: leaderboardConfig is intentionally in-memory for now.
+ * The values are reset on each server restart. For multi-instance
+ * deployments, persist this in the DB (e.g. a SystemConfig collection).
+ * Basically, dont think much about it as long as it works. maybe.
+ */
 let leaderboardConfig = {
   period: "weekly",
   lastReset: new Date().toISOString()
@@ -48,12 +55,8 @@ export async function resetLeaderboard(req: Request, res: Response) {
 }
 
 export async function getApiLogs(req: Request, res: Response) {
-  const mockLogs = [
-    { method: "GET", path: "/v1/auth/me", status: 200, duration: "45ms", ip: "127.0.0.1", timestamp: new Date().toISOString() },
-    { method: "POST", path: "/v1/admin/badges", status: 201, duration: "120ms", ip: "127.0.0.1", timestamp: new Date().toISOString() },
-    { method: "GET", path: "/v1/learner/chapters", status: 200, duration: "30ms", ip: "127.0.0.1", timestamp: new Date().toISOString() },
-    { method: "POST", path: "/v1/auth/login", status: 401, duration: "200ms", ip: "127.0.0.1", timestamp: new Date().toISOString() },
-  ];
-
-  return res.json(ok(mockLogs));
+  const limit = Math.min(500, Math.max(1, Number(req.query.limit ?? 100)));
+  const logs = getRecentLogs(limit);
+  return res.json(ok({ total: logs.length, limit, items: logs }));
 }
+

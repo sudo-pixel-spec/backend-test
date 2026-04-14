@@ -16,7 +16,7 @@ export interface AIProvider {
 }
 
 export class MockAIProvider implements AIProvider {
-  async chat(messages: ChatMessage[]): Promise<AIResponse> {
+  async chat(_messages: ChatMessage[]): Promise<AIResponse> {
     return {
       content: "This is a mock AI response based on the lesson context.",
       tokenCount: 20,
@@ -27,14 +27,8 @@ export class MockAIProvider implements AIProvider {
 class OpenAIProvider implements AIProvider {
   private client: OpenAI;
 
-  constructor() {
-    if (!env.OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not set");
-    }
-
-    this.client = new OpenAI({
-      apiKey: env.OPENAI_API_KEY,
-    });
+  constructor(apiKey: string) {
+    this.client = new OpenAI({ apiKey });
   }
 
   async chat(messages: ChatMessage[]): Promise<AIResponse> {
@@ -55,7 +49,27 @@ class OpenAIProvider implements AIProvider {
   }
 }
 
-export const aiProvider: AIProvider =
-  process.env.NODE_ENV === "test"
-    ? new MockAIProvider()
-    : new OpenAIProvider();
+function createAIProvider(): AIProvider {
+  if (env.NODE_ENV === "test") {
+    return new MockAIProvider();
+  }
+
+  if (!env.OPENAI_API_KEY) {
+    if (env.NODE_ENV === "production") {
+      throw new Error(
+        "[AI] OPENAI_API_KEY is required in production. " +
+        "Set it in your environment or disable the AI chat module."
+      );
+    }
+    console.warn(
+      "[AI] OPENAI_API_KEY is not set. " +
+      "Using MockAIProvider for development — set the key to enable real AI."
+    );
+    return new MockAIProvider();
+  }
+
+  return new OpenAIProvider(env.OPENAI_API_KEY);
+}
+
+export const aiProvider: AIProvider = createAIProvider();
+
